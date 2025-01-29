@@ -13,3 +13,18 @@ p {
     color: black;
 }
 
+
+/* This sets the font to Courier New for the entire body of the page */
+body {
+  font-family: 'Courier New', Courier, monospace;
+}
+
+/* Example for heading elements */
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Courier New', Courier, monospace;
+}
+
+/* Example for paragraphs */
+p {
+  font-family: 'Courier New', Courier, monospace;
+}
