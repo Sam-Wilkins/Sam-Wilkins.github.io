@@ -17,7 +17,6 @@
       margin: auto;
       width: 800px;
       height: 600px;
-      display: block;
       position: relative;
     }
     /* Weapon display overlay */
@@ -25,17 +24,64 @@
       position: absolute;
       top: 10px;
       left: 10px;
-      z-index: 1;
+      z-index: 2;
       font-size: 20px;
       background: rgba(0, 0, 0, 0.5);
       padding: 5px 10px;
       border-radius: 5px;
+    }
+    /* Mobile controls overlay */
+    #mobile-controls {
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    /* D-pad styling */
+    #dpad {
+      display: grid;
+      grid-template-areas:
+        ". up ."
+        "left . right"
+        ". down .";
+      grid-gap: 5px;
+    }
+    #dpad button {
+      width: 50px;
+      height: 50px;
+      font-size: 20px;
+    }
+    #btn-up { grid-area: up; }
+    #btn-down { grid-area: down; }
+    #btn-left { grid-area: left; }
+    #btn-right { grid-area: right; }
+    /* Shoot button styling */
+    #btn-shoot {
+      width: 80px;
+      height: 80px;
+      font-size: 20px;
+      border-radius: 50%;
+      align-self: flex-end;
+      margin-right: 20px;
     }
   </style>
 </head>
 <body>
   <div id="game-container">
     <div id="weaponDisplay">Weapon: Pistol</div>
+    <!-- Mobile Controls -->
+    <div id="mobile-controls">
+      <div id="dpad">
+        <button id="btn-up">↑</button>
+        <button id="btn-left">←</button>
+        <button id="btn-right">→</button>
+        <button id="btn-down">↓</button>
+      </div>
+      <button id="btn-shoot">Shoot</button>
+    </div>
   </div>
   <!-- Game code -->
   <script src="game.js"></script>
