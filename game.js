@@ -61,6 +61,36 @@ const weapons = {
   minigun: { name: 'Minigun', fireRate: 100, bulletSpeed: 600 }
 };
 
+
+function saveScore(score) {
+  let leaderboard = JSON.parse(localStorage.getItem('leaderboard')) || [];
+  
+  leaderboard.push({ name: 'Player', score: score });
+  
+  // Sort leaderboard by score in descending order
+  leaderboard.sort((a, b) => b.score - a.score);
+  
+  // Save top 5 scores only
+  leaderboard = leaderboard.slice(0, 5);
+  
+  localStorage.setItem('leaderboard', JSON.stringify(leaderboard));
+  displayLeaderboard();
+}
+
+function displayLeaderboard() {
+  let leaderboard = JSON.parse(localStorage.getItem('leaderboard')) || [];
+  
+  const scoreList = document.getElementById('scoreList');
+  scoreList.innerHTML = ''; // Clear current list
+  
+  leaderboard.forEach((entry, index) => {
+    const li = document.createElement('li');
+    li.textContent = `${index + 1}. ${entry.name} - ${entry.score}`;
+    scoreList.appendChild(li);
+  });
+}
+
+
 // Mobile control flags
 let mobileControl = {
   up: false,
@@ -148,6 +178,14 @@ function update(time, delta) {
     shootBullet.call(this);
     lastShotTime = time;
   }
+
+function endGame(playerScore) {
+  // Show the restart button
+  restartButton.setVisible(true);
+
+  // Save score to leaderboard
+  saveScore(playerScore);
+}
 
   // Cleanup off-screen objects
   bullets.children.each(function(bullet) {
