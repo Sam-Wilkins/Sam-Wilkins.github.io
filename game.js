@@ -15,6 +15,35 @@ const config = {
   }
 };
 
+
+let restartButton;
+
+function create() {
+  // ... other create code ...
+
+  // Create the restart button
+  restartButton = this.add.dom(400, 300, 'button', 'width: 200px; height: 50px; font-size: 20px;', 'Restart Game');
+
+  restartButton.addListener('click');
+  restartButton.on('click', () => {
+    this.scene.restart(); // Restart the current scene
+    restartButton.setVisible(false); // Hide the button after restart
+  });
+
+  // Example of triggering the restart button (could be called when the player dies, etc.)
+  // restartButton.setVisible(true);
+}
+
+function endGame() {
+  // Show the restart button when the game ends
+  restartButton.setVisible(true);
+}
+
+
+
+
+
+
 let player;
 let cursors;
 let spaceBar;
