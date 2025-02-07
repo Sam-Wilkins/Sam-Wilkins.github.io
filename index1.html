@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pixel Shooter Game</title>
+  <!-- Load Phaser 3 from CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.js"></script>
+  <style>
+    body {
+      margin: 0;
+      background: #222;
+      color: #fff;
+      font-family: Arial, sans-serif;
+    }
+    #game-container {
+      margin: auto;
+      width: 800px;
+      height: 600px;
+      display: block;
+      position: relative;
+    }
+    /* Weapon display overlay */
+    #weaponDisplay {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 1;
+      font-size: 20px;
+      background: rgba(0, 0, 0, 0.5);
+      padding: 5px 10px;
+      border-radius: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div id="game-container">
+    <div id="weaponDisplay">Weapon: Pistol</div>
+  </div>
+  <!-- Game code -->
+  <script src="game.js"></script>
+</body>
+</html>
