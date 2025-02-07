@@ -32,11 +32,20 @@ const weapons = {
   minigun: { name: 'Minigun', fireRate: 100, bulletSpeed: 600 }
 };
 
+// Mobile control flags
+let mobileControl = {
+  up: false,
+  down: false,
+  left: false,
+  right: false,
+  shoot: false
+};
+
 // Create a new Phaser game
 const game = new Phaser.Game(config);
 
 function preload() {
-  // Load assets (replace these URLs with your own pixel art assets if you have them)
+  // Load assets (replace these URLs with your own pixel art assets if available)
   this.load.image('player', 'https://labs.phaser.io/assets/sprites/phaser-dude.png'); // placeholder
   this.load.image('bullet', 'https://labs.phaser.io/assets/sprites/blue_ball.png');    // placeholder
   this.load.image('enemy', 'https://labs.phaser.io/assets/sprites/space-baddie.png');    // placeholder
@@ -44,7 +53,7 @@ function preload() {
 }
 
 function create() {
-  // Create the player in the middle-bottom of the screen
+  // Create the player near the bottom center of the screen
   player = this.physics.add.sprite(400, 500, 'player');
   player.setCollideWorldBounds(true);
 
@@ -80,38 +89,38 @@ function create() {
     loop: true
   });
 
-  // Setup collisions: bullet hits enemy
+  // Setup collisions
   this.physics.add.overlap(bullets, enemies, bulletHitEnemy, null, this);
-  // Collision: player collects weapon drop
   this.physics.add.overlap(player, weaponDrops, collectWeapon, null, this);
-  // Collision: enemy hits player (ends game)
   this.physics.add.overlap(player, enemies, playerHit, null, this);
 }
 
 function update(time, delta) {
-  // Player movement
-  if (cursors.left.isDown) {
-    player.setVelocityX(-200);
-  } else if (cursors.right.isDown) {
-    player.setVelocityX(200);
-  } else {
-    player.setVelocityX(0);
+  // Handle player movement via keyboard and mobile controls
+  let vx = 0;
+  let vy = 0;
+  
+  if (cursors.left.isDown || mobileControl.left) {
+    vx = -200;
+  } else if (cursors.right.isDown || mobileControl.right) {
+    vx = 200;
   }
-  if (cursors.up.isDown) {
-    player.setVelocityY(-200);
-  } else if (cursors.down.isDown) {
-    player.setVelocityY(200);
-  } else {
-    player.setVelocityY(0);
+  
+  if (cursors.up.isDown || mobileControl.up) {
+    vy = -200;
+  } else if (cursors.down.isDown || mobileControl.down) {
+    vy = 200;
   }
+  
+  player.setVelocity(vx, vy);
 
-  // Shooting: Check if space is pressed and if enough time has passed based on the current weapon's fire rate
-  if (spaceBar.isDown && time > lastShotTime + currentWeapon.fireRate) {
+  // Handle shooting: keyboard (space) or mobile shoot button
+  if ((spaceBar.isDown || mobileControl.shoot) && time > lastShotTime + currentWeapon.fireRate) {
     shootBullet.call(this);
     lastShotTime = time;
   }
 
-  // Cleanup off-screen bullets, enemies, and drops
+  // Cleanup off-screen objects
   bullets.children.each(function(bullet) {
     if (bullet.y < 0) bullet.destroy();
   }, this);
@@ -124,7 +133,7 @@ function update(time, delta) {
 }
 
 function shootBullet() {
-  // For the minigun, add a slight random offset to simulate spread
+  // For the minigun, add a slight random offset to simulate bullet spread
   let offsetX = 0;
   if (currentWeapon.name === 'Minigun') {
     offsetX = Phaser.Math.Between(-10, 10);
@@ -143,20 +152,20 @@ function spawnWeaponDrop() {
   // Spawn a weapon drop at a random x position at the top
   let drop = weaponDrops.create(Phaser.Math.Between(50, 750), 0, 'weaponDrop');
   drop.setVelocityY(100);
-  // Randomly select a weapon type from our weapons list
+  // Randomly assign a weapon type from our list
   const weaponKeys = Object.keys(weapons);
   drop.weaponType = weaponKeys[Phaser.Math.Between(0, weaponKeys.length - 1)];
 }
 
 function collectWeapon(player, drop) {
-  // When the player collects a weapon drop, update the current weapon
+  // Update the current weapon when a drop is collected
   currentWeapon = weapons[drop.weaponType];
   updateWeaponDisplay();
   drop.destroy();
 }
 
 function updateWeaponDisplay() {
-  // Update the overlay that shows the current weapon
+  // Update the on-screen display with the current weapon
   const display = document.getElementById('weaponDisplay');
   if (display) {
     display.innerText = 'Weapon: ' + currentWeapon.name;
@@ -171,8 +180,37 @@ function bulletHitEnemy(bullet, enemy) {
 }
 
 function playerHit(player, enemy) {
-  // Game over: stop physics and show final score
+  // End the game if an enemy touches the player
   this.physics.pause();
   player.setTint(0xff0000);
   scoreText.setText('Game Over! Final Score: ' + score);
 }
+
+// --- Mobile Control Event Listeners ---
+// For touch events:
+document.getElementById('btn-up').addEventListener('touchstart', () => { mobileControl.up = true; });
+document.getElementById('btn-up').addEventListener('touchend', () => { mobileControl.up = false; });
+
+document.getElementById('btn-down').addEventListener('touchstart', () => { mobileControl.down = true; });
+document.getElementById('btn-down').addEventListener('touchend', () => { mobileControl.down = false; });
+
+document.getElementById('btn-left').addEventListener('touchstart', () => { mobileControl.left = true; });
+document.getElementById('btn-left').addEventListener('touchend', () => { mobileControl.left = false; });
+
+document.getElementById('btn-right').addEventListener('touchstart', () => { mobileControl.right = true; });
+document.getElementById('btn-right').addEventListener('touchend', () => { mobileControl.right = false; });
+
+document.getElementById('btn-shoot').addEventListener('touchstart', () => { mobileControl.shoot = true; });
+document.getElementById('btn-shoot').addEventListener('touchend', () => { mobileControl.shoot = false; });
+
+// Also add mouse events for testing on desktops:
+document.getElementById('btn-up').addEventListener('mousedown', () => { mobileControl.up = true; });
+document.getElementById('btn-up').addEventListener('mouseup', () => { mobileControl.up = false; });
+document.getElementById('btn-down').addEventListener('mousedown', () => { mobileControl.down = true; });
+document.getElementById('btn-down').addEventListener('mouseup', () => { mobileControl.down = false; });
+document.getElementById('btn-left').addEventListener('mousedown', () => { mobileControl.left = true; });
+document.getElementById('btn-left').addEventListener('mouseup', () => { mobileControl.left = false; });
+document.getElementById('btn-right').addEventListener('mousedown', () => { mobileControl.right = true; });
+document.getElementById('btn-right').addEventListener('mouseup', () => { mobileControl.right = false; });
+document.getElementById('btn-shoot').addEventListener('mousedown', () => { mobileControl.shoot = true; });
+document.getElementById('btn-shoot').addEventListener('mouseup', () => { mobileControl.shoot = false; });
