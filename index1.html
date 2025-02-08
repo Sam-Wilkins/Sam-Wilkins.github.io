@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Pixel Shooter Game</title>
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.js"></script>
+</head>
+<body>
+
+  <!-- Game Container -->
+  <div id="game-container" style="position: relative; text-align: center;">
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- Weapon Display -->
+    <div id="weaponDisplay" style="position: absolute; top: 10px; left: 10px; background: black; color: white; padding: 5px;">
+      Weapon: Pistol
+    </div>
+
+    <!-- Restart Button -->
+    <button id="restartButton" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 20px; padding: 10px; background: red; color: white; border: none; cursor: pointer; display: none;">
+      Restart Game
+    </button>
+
+    <!-- Leaderboard -->
+    <div id="leaderboard" style="position: absolute; top: 10px; right: 10px; background: black; color: white; padding: 10px;">
+      <h3>Leaderboard</h3>
+      <ul id="scoreList" style="margin: 0; padding: 0; list-style: none;"></ul>
+    </div>
+
+    <!-- Mobile Controls -->
+    <div id="mobile-controls" style="position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px;">
+      <button id="leftBtn" style="width: 60px; height: 60px;">⬅️</button>
+      <button id="rightBtn" style="width: 60px; height: 60px;">➡️</button>
+      <button id="shootBtn" style="width: 60px; height: 60px;">🔫</button>
+    </div>
+  </div>
+
+  <script>
+    const config = {
+      type: Phaser.AUTO,
+      width: 800,
+      height: 600,
+      physics: { default: 'arcade', arcade: { debug: false } },
+      scene: { preload, create, update }
+    };
+
+    let player, bullets, enemies, cursors, score = 0, gameOver = false, restartButton;
+    const game = new Phaser.Game(config);
+
+    function preload() {
+      this.load.image('player', 'https://labs.phaser.io/assets/sprites/phaser-dude.png');
+      this.load.image('bullet', 'https://labs.phaser.io/assets/sprites/bullet.png');
+      this.load.image('enemy', 'https://labs.phaser.io/assets/sprites/space-baddie.png');
+    }
+
+    function create() {
+      player = this.physics.add.sprite(400, 500, 'player').setCollideWorldBounds(true);
+      bullets = this.physics.add.group();
+      enemies = this.physics.add.group();
+
+      cursors = this.input.keyboard.createCursorKeys();
+      
+      this.time.addEvent({
+        delay: 1000,
+        callback: spawnEnemy,
+        callbackScope: this,
+        loop: true
+      });
+
+      restartButton = document.getElementById('restartButton');
+      restartButton.onclick = () => this.scene.restart();
+
+      document.getElementById('leftBtn').addEventListener('touchstart', () => player.setVelocityX(-200));
+      document.getElementById('rightBtn').addEventListener('touchstart', () => player.setVelocityX(200));
+      document.getElementById('leftBtn').addEventListener('touchend', () => player.setVelocityX(0));
+      document.getElementById('rightBtn').addEventListener('touchend', () => player.setVelocityX(0));
+      document.getElementById('shootBtn').addEventListener('touchstart', () => shootBullet.call(this));
+    }
+
+    function update() {
+      if (gameOver) return;
+      if (cursors.left.isDown) player.setVelocityX(-200);
+      else if (cursors.right.isDown) player.setVelocityX(200);
+      else player.setVelocityX(0);
+
+      if (Phaser.Input.Keyboard.JustDown(cursors.space)) shootBullet.call(this);
+    }
+
+    function shootBullet() {
+      let bullet = bullets.create(player.x, player
