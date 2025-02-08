@@ -1,63 +1,29 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <!-- Prevents mobile zooming -->
+  <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Pixel Shooter Game</title>
-  <!-- Load Phaser 3 from CDN -->
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.js"></script>
-  <style>
-    body {
-      margin: 0;
-      background: #222;
-      color: #fff;
-      font-family: Arial, sans-serif;
-    }
-    /* Responsive container: adjusts width up to 800px and keeps a fixed height */
-    #game-container {
-      margin: auto;
-      width: 100%;
-      max-width: 800px;
-      height: 600px;
-      position: relative;
-      overflow: hidden; 
-      
-      <div id="game-container">
-  <div id="weaponDisplay">Weapon: Pistol</div>
-
-      
-      
-      
-      /* Helps ensure nothing spills out */
-    }
-    /* Other styles remain unchanged */
-    #weaponDisplay {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      z-index: 2;
-      font-size: 20px;
-      background: rgba(0, 0, 0, 0.5);
-      padding: 5px 10px;
-      border-radius: 5px;
-    }
-    
-    
-
-}
-
-
-
-    /* Mobile Controls */
-    /* ... (mobile control CSS here) ... */
-  </style>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div id="game-container">
     <div id="weaponDisplay">Weapon: Pistol</div>
-    <!-- Your mobile control HTML can go here -->
+    <button id="restartButton" style="display: none;">Restart Game</button>
+    <div id="leaderboard">
+      <h3>Leaderboard</h3>
+      <ul id="scoreList"></ul>
+    </div>
+
+    <!-- Mobile Controls -->
+    <div id="mobile-controls">
+      <button id="leftBtn">⬅️</button>
+      <button id="rightBtn">➡️</button>
+      <button id="shootBtn">🔫</button>
+    </div>
   </div>
+
   <script src="game.js"></script>
 </body>
 </html>
