@@ -75,6 +75,20 @@
         }
         generateTerrain();
 
+        let obstacles = [];
+        function generateObstacles() {
+            for (let i = 0; i < 5; i++) {
+                obstacles.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * (canvas.height / 2),
+                    width: 60,
+                    height: 15,
+                    speed: (Math.random() * 2 + 1) * (Math.random() < 0.5 ? 1 : -1)
+                });
+            }
+        }
+        generateObstacles();
+
         let keys = {};
         window.addEventListener("keydown", (e) => keys[e.code] = true);
         window.addEventListener("keyup", (e) => keys[e.code] = false);
@@ -119,47 +133,36 @@
                     setTimeout(() => { popup.style.display = "none"; }, 3000);
                 }
             }
+
+            for (let obstacle of obstacles) {
+                obstacle.x += obstacle.speed;
+                if (obstacle.x < 0) obstacle.x = canvas.width;
+                if (obstacle.x > canvas.width) obstacle.x = 0;
+
+                if (
+                    airplane.x < obstacle.x + obstacle.width &&
+                    airplane.x + airplane.width > obstacle.x &&
+                    airplane.y < obstacle.y + obstacle.height &&
+                    airplane.y + airplane.height > obstacle.y
+                ) {
+                    alert("You crashed into another plane!");
+                    location.reload();
+                }
+            }
         }
 
-        function drawAirplane() {
-            ctx.save();
-            ctx.translate(airplane.x, airplane.y);
-            ctx.rotate(airplane.angle);
-
-            ctx.fillStyle = "white";
-            ctx.fillRect(-airplane.width / 2, -airplane.height / 2, airplane.width, airplane.height);
-            
-            ctx.fillStyle = "black";
-            ctx.fillRect(-airplane.width / 3, -airplane.height / 1.5, 10, 10);
-
-            ctx.fillStyle = "gray";
-            ctx.fillRect(-airplane.width / 2, -airplane.height / 3, airplane.width, 5);
-
-            if (airplane.landingGear) {
-                ctx.fillStyle = "black";
-                ctx.fillRect(-airplane.width / 2 + 10, airplane.height / 2, 5, 10);
-                ctx.fillRect(airplane.width / 2 - 15, airplane.height / 2, 5, 10);
+        function drawObstacles() {
+            ctx.fillStyle = "red";
+            for (let obstacle of obstacles) {
+                ctx.fillRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
             }
-
-            ctx.restore();
-        }
-
-        function drawTerrain() {
-            ctx.fillStyle = "green";
-            ctx.beginPath();
-            ctx.moveTo(0, canvas.height);
-            for (let point of terrain) {
-                ctx.lineTo(point.x, point.y);
-            }
-            ctx.lineTo(canvas.width, canvas.height);
-            ctx.closePath();
-            ctx.fill();
         }
 
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             drawTerrain();
             drawAirplane();
+            drawObstacles();
         }
 
         function gameLoop() {
