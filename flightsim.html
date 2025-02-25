@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2D Flight Simulator</title>
+    <style>
+        canvas {
+            background: skyblue;
+            display: block;
+            margin: auto;
+        }
+        #popup {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 20px;
+            border: 2px solid black;
+            display: none;
+        }
+        #distance {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 20px;
+            background: white;
+            padding: 5px;
+            border: 1px solid black;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    <div id="popup">Landing Successful!</div>
+    <div id="distance">Distance Traveled: 0m</div>
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        const popup = document.getElementById("popup");
+        const distanceDisplay = document.getElementById("distance");
+
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        let airplane = {
+            x: canvas.width / 2,
+            y: canvas.height / 4,
+            width: 80,
+            height: 20,
+            angle: 0,
+            velocityX: 0,
+            velocityY: 0,
+            thrust: 0,
+            lift: 0.1,
+            gravity: 0.1,
+            drag: 0.98,
+            maxSpeed: 10,
+            landingGear: true,
+            landed: false,
+            distanceTraveled: 0
+        };
+
+        let terrain = [];
+        function generateTerrain() {
+            let lastHeight = canvas.height - 100;
+            for (let i = 0; i < canvas.width; i += 20) {
+                let heightVariation = (Math.random() - 0.5) * 20;
+                lastHeight += heightVariation;
+                lastHeight = Math.max(canvas.height - 200, Math.min(canvas.height - 50, lastHeight));
+                terrain.push({ x: i, y: lastHeight });
+            }
+        }
+        generateTerrain();
+
+        let keys = {};
+        window.addEventListener("keydown", (e) => keys[e.code] = true);
+        window.addEventListener("keyup", (e) => keys[e.code] = false);
+
+        function update() {
+            if (keys["ArrowLeft"]) airplane.angle -= 0.05;
+            if (keys["ArrowRight"]) airplane.angle += 0.05;
+            if (keys["ArrowUp"]) airplane.thrust = 0.3;
+            else airplane.thrust = 0;
+            if (keys["KeyG"]) airplane.landingGear = !airplane.landingGear;
+
+            airplane.velocityX *= airplane.drag;
+            airplane.velocityY += airplane.gravity;
+
+            let thrustX = Math.cos(airplane.angle) * airplane.thrust;
+            let thrustY = Math.sin(airplane.angle) * airplane.thrust;
+
+            airplane.velocityX += thrustX;
+            airplane.velocityY += thrustY;
+            airplane.velocityY -= airplane.lift * Math.cos(airplane.angle);
+
+            if (airplane.velocityX > airplane.maxSpeed) airplane.velocityX = airplane.maxSpeed;
+            if (airplane.velocityX < -airplane.maxSpeed) airplane.velocityX = -airplane.maxSpeed;
+
+            airplane.x += airplane.velocityX;
+            airplane.y += airplane.velocityY;
+
+            airplane.distanceTraveled += Math.abs(airplane.velocityX);
+            distanceDisplay.innerText = `Distance Traveled: ${Math.floor(airplane.distanceTraveled)}m`;
+
+            if (airplane.x < 0) airplane.x = canvas.width;
+            if (airplane.x > canvas.width) airplane.x = 0;
+            if (airplane.y < 0) airplane.y = 0;
+
+            for (let point of terrain) {
+                if (Math.abs(airplane.x - point.x) < 10 && airplane.y > point.y - 10) {
+                    airplane.y = point.y - 10;
+                    airplane.velocityX = 0;
+                    airplane.velocityY = 0;
+                    airplane.landed = true;
+                    popup.style.display = "block";
+                    setTimeout(() => { popup.style.display = "none"; }, 3000);
+                }
+            }
+        }
+
+        function drawAirplane() {
+            ctx.save();
+            ctx.translate(airplane.x, airplane.y);
+            ctx.rotate(airplane.angle);
+
+            ctx.fillStyle = "white";
+            ctx.fillRect(-airplane.width / 2, -airplane.height / 2, airplane.width, airplane.height);
+            
+            ctx.fillStyle = "black";
+            ctx.fillRect(-airplane.width / 3, -airplane.height / 1.5, 10, 10);
+
+            ctx.fillStyle = "gray";
+            ctx.fillRect(-airplane.width / 2, -airplane.height / 3, airplane.width, 5);
+
+            if (airplane.landingGear) {
+                ctx.fillStyle = "black";
+                ctx.fillRect(-airplane.width / 2 + 10, airplane.height / 2, 5, 10);
+                ctx.fillRect(airplane.width / 2 - 15, airplane.height / 2, 5, 10);
+            }
+
+            ctx.restore();
+        }
+
+        function drawTerrain() {
+            ctx.fillStyle = "green";
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height);
+            for (let point of terrain) {
+                ctx.lineTo(point.x, point.y);
+            }
+            ctx.lineTo(canvas.width, canvas.height);
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawTerrain();
+            drawAirplane();
+        }
+
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        gameLoop();
+    </script>
+</body>
+</html>
