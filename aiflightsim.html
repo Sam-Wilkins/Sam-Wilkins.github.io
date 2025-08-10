@@ -1,0 +1,523 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+<title>Mini 3D Flight (Mobile-friendly)</title>
+<style>
+  html,body { height:100%; margin:0; background:#86c3ff; -webkit-tap-highlight-color: transparent; }
+  canvas { display:block; width:100%; height:100%; }
+  /* HUD */
+  #hud {
+    position: absolute;
+    left: 12px;
+    top: 12px;
+    color: #fff;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    text-shadow: 0 2px 6px rgba(0,0,0,0.6);
+    z-index: 10;
+  }
+  #controls {
+    position: absolute;
+    right: 12px;
+    bottom: 12px;
+    z-index: 11;
+    display:flex;
+    gap:10px;
+    align-items:center;
+    pointer-events:none; /* enable children but not container for touches propagation */
+  }
+
+  /* Throttle/Yaw buttons */
+  .panel {
+    pointer-events:auto;
+    background: rgba(0,0,0,0.35);
+    padding:8px;
+    border-radius:10px;
+    backdrop-filter: blur(4px);
+  }
+  button {
+    font-size:18px;
+    padding:8px 10px;
+    margin:4px;
+    border-radius:8px;
+    border: none;
+    color:white;
+    background: rgba(255,255,255,0.08);
+    min-width:48px;
+  }
+  button:active { transform: translateY(1px); }
+
+  /* Virtual joystick area (left) */
+  #joystickZone {
+    position: absolute;
+    left: 12px;
+    bottom: 12px;
+    width: 36vw;
+    max-width:240px;
+    height: 36vw;
+    max-height:240px;
+    border-radius: 16px;
+    background: rgba(0,0,0,0.12);
+    backdrop-filter: blur(3px);
+    z-index:11;
+    touch-action: none;
+  }
+  #stick {
+    position:absolute;
+    left:50%;
+    top:50%;
+    width: 72px;
+    height:72px;
+    margin:-36px 0 0 -36px;
+    border-radius:50%;
+    background: rgba(255,255,255,0.12);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.5);
+    transform: translate(0,0);
+    transition: background .12s;
+    pointer-events:none;
+  }
+  #label {
+    color:#fff;
+    font-size:12px;
+    opacity:0.9;
+    position:absolute;
+    bottom:6px;
+    left:8px;
+  }
+
+  /* Small instructions overlay */
+  #tip {
+    position: absolute;
+    left:50%;
+    transform:translateX(-50%);
+    bottom: 8px;
+    z-index:12;
+    color:#fff;
+    font-size:13px;
+    background: rgba(0,0,0,0.28);
+    padding:6px 10px;
+    border-radius:8px;
+    pointer-events:none;
+  }
+
+  /* make buttons bigger on mobile */
+  @media (max-width:600px){
+    button { font-size:20px; padding:10px 12px; min-width:64px; }
+    #stick{ width:88px;height:88px;margin:-44px 0 0 -44px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="hud">
+  <div>Speed: <span id="speed">0</span> m/s</div>
+  <div>Alt: <span id="alt">0</span> m</div>
+  <div>Throttle: <span id="thro">0</span>%</div>
+</div>
+
+<div id="joystickZone" aria-hidden="false">
+  <div id="stick"></div>
+  <div id="label">Pitch / Roll</div>
+</div>
+
+<div id="controls">
+  <div class="panel" style="display:flex;flex-direction:column;align-items:center;">
+    <div style="font-size:12px;color:rgba(255,255,255,0.9);margin-bottom:6px">Yaw</div>
+    <div>
+      <button id="yawLeft">⟲</button>
+      <button id="yawRight">⟳</button>
+    </div>
+  </div>
+
+  <div class="panel" style="display:flex;flex-direction:column;align-items:center;">
+    <div style="font-size:12px;color:rgba(255,255,255,0.9);margin-bottom:6px">Throttle</div>
+    <div>
+      <button id="thUp">▲</button>
+      <button id="thDown">▼</button>
+    </div>
+  </div>
+</div>
+
+<div id="tip">Tap & drag left box to pitch/roll. Use right buttons for throttle & yaw.</div>
+
+<script src="https://unpkg.com/three@0.150.0/build/three.min.js"></script>
+
+<script>
+/*
+  Mini 3D Flight Simulator
+  - Plane: simple Group (fuselage + wings + tail)
+  - Physics: very small, arcade-ish lift + gravity + drag + throttle (thrust)
+  - Controls:
+      - Left touch area: joystick controls pitch (up/down) and roll (left/right)
+      - Right buttons: throttle up/down and yaw left/right
+  - Mobile friendly: big buttons, responsive canvas
+*/
+
+// Scene setup
+let scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0x86c3ff, 0.0006);
+
+let camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 5000);
+camera.position.set(0, 6, -12);
+
+let renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1.5, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
+
+// Light
+let hemi = new THREE.HemisphereLight(0xffffff, 0x666699, 0.9);
+scene.add(hemi);
+let sun = new THREE.DirectionalLight(0xfff3cc, 0.9);
+sun.position.set(60,120,-30);
+scene.add(sun);
+
+// Ground (a large plane with simple repeating texture / color)
+let groundGeo = new THREE.PlaneGeometry(10000,10000);
+let groundMat = new THREE.MeshLambertMaterial({color:0x2b8a3e});
+let ground = new THREE.Mesh(groundGeo, groundMat);
+ground.rotation.x = -Math.PI/2;
+ground.position.y = -0.5;
+scene.add(ground);
+
+// Simple sky horizon gradient - implemented by background color + fog
+
+// Build a simple plane model
+function makePlane(){
+  let g = new THREE.Group();
+
+  // fuselage
+  let fus = new THREE.Mesh(new THREE.CylinderGeometry(.5,.35, 4, 12), new THREE.MeshStandardMaterial({color:0xd14f4f, metalness:0.25, roughness:0.6}));
+  fus.rotation.z = Math.PI/2;
+  g.add(fus);
+
+  // cockpit dome
+  let dome = new THREE.Mesh(new THREE.SphereGeometry(0.5, 12, 10), new THREE.MeshStandardMaterial({color:0x333333, metalness:0.1, roughness:0.6}));
+  dome.scale.set(0.7,0.7,0.7);
+  dome.position.set(0.9,0.2,0);
+  dome.rotation.z = Math.PI/2;
+  g.add(dome);
+
+  // wings
+  let wing = new THREE.Mesh(new THREE.BoxGeometry(6,0.12,0.6), new THREE.MeshStandardMaterial({color:0x222233}));
+  wing.position.set(0, 0, 0);
+  wing.rotation.y = Math.PI/12;
+  g.add(wing);
+
+  // tailplane
+  let tail = new THREE.Mesh(new THREE.BoxGeometry(1.0,0.08,0.5), new THREE.MeshStandardMaterial({color:0x222233}));
+  tail.position.set(-1.7, 0.35, 0);
+  tail.rotation.y = -Math.PI/8;
+  g.add(tail);
+
+  // vertical stabilizer
+  let stab = new THREE.Mesh(new THREE.BoxGeometry(0.08,0.9,0.6), new THREE.MeshStandardMaterial({color:0x222233}));
+  stab.position.set(-1.8,0.8,0);
+  g.add(stab);
+
+  return g;
+}
+
+let plane = makePlane();
+plane.position.set(0, 30, 0);
+plane.rotation.order = "ZYX"; // yaw-pitch-roll friendly
+scene.add(plane);
+
+// make camera follow smoothly behind plane
+let cameraTargetOffset = new THREE.Vector3(0,3,-10);
+
+// HUD elements
+const speedEl = document.getElementById('speed');
+const altEl = document.getElementById('alt');
+const throEl = document.getElementById('thro');
+
+// Flight state & physics parameters (arcade-ish)
+let state = {
+  speed: 25,     // m/s initial
+  throttle: 0.4, // 0..1
+  pos: new THREE.Vector3(0,30,0),
+  vel: new THREE.Vector3(0,0,0),
+  pitch: 0,
+  roll: 0,
+  yaw: 0
+};
+
+const params = {
+  maxThrottle: 1.0,
+  minThrottle: 0.0,
+  thrustAccel: 40.0,    // acceleration per throttle unit
+  drag: 0.02,           // quadratic drag coefficient
+  liftFactor: 0.02,     // how much speed produces lift
+  gravity: 9.81,
+  pitchSpeed: 1.4,      // how fast plane can pitch from joystick
+  rollSpeed: 1.8,       // how fast plane can roll
+  yawSpeed: 1.0,        // yaw responsiveness for buttons
+  bankToTurn: 0.6       // how much roll produces yaw turning
+};
+
+// small world objects (simple columns) to feel movement
+let cols = new THREE.Group();
+for(let i=0;i<300;i++){
+  let c = new THREE.Mesh(new THREE.CylinderGeometry(0.5,0.9, 6 + Math.random()*18, 6),
+                         new THREE.MeshStandardMaterial({color: 0x6b8b3a}));
+  c.position.set((Math.random()-0.5)*3000, 3 + Math.random()*30, (Math.random()-0.5)*3000);
+  cols.add(c);
+}
+scene.add(cols);
+
+// Simple minimap-ish directional light changes with altitude (subtle)
+function updateLighting(alt){
+  let t = Math.min(Math.max((alt-10)/400, 0), 1);
+  scene.fog.color.setHSL(0.55 - 0.12*(1-t), 0.7, 0.7);
+}
+
+// Controls: virtual joystick
+let joystickZone = document.getElementById('joystickZone');
+let stick = document.getElementById('stick');
+let zoneRect = null;
+let activeTouchId = null;
+let stickPos = {x:0,y:0}; // -1..1 for x,y (x=roll, y=pitch)
+
+function updateStickFromTouch(clientX, clientY){
+  if(!zoneRect) zoneRect = joystickZone.getBoundingClientRect();
+  let cx = clientX - (zoneRect.left + zoneRect.width/2);
+  let cy = clientY - (zoneRect.top + zoneRect.height/2);
+  // normalize to [-1,1]
+  let nx = cx / (zoneRect.width/2);
+  let ny = cy / (zoneRect.height/2);
+  nx = Math.max(-1, Math.min(1, nx));
+  ny = Math.max(-1, Math.min(1, ny));
+  // small deadzone
+  let dead = 0.08;
+  if(Math.abs(nx) < dead) nx = 0;
+  if(Math.abs(ny) < dead) ny = 0;
+  stickPos.x = nx;
+  stickPos.y = ny;
+  // visual
+  stick.style.transform = `translate(${nx * (zoneRect.width/2 - 36)}px, ${ny * (zoneRect.height/2 - 36)}px)`;
+  stick.style.background = (nx||ny)?'rgba(255,255,255,0.18)':'rgba(255,255,255,0.12)';
+}
+
+function resetStick(){
+  stickPos.x = 0; stickPos.y = 0;
+  stick.style.transform = 'translate(0,0)';
+  stick.style.background = 'rgba(255,255,255,0.12)';
+}
+
+// Touch events
+joystickZone.addEventListener('touchstart', (e)=>{
+  e.preventDefault();
+  if(activeTouchId !== null) return;
+  let t = e.changedTouches[0];
+  activeTouchId = t.identifier;
+  updateStickFromTouch(t.clientX, t.clientY);
+});
+joystickZone.addEventListener('touchmove', (e)=>{
+  e.preventDefault();
+  for(let t of e.changedTouches){
+    if(t.identifier === activeTouchId){
+      updateStickFromTouch(t.clientX, t.clientY);
+      break;
+    }
+  }
+});
+joystickZone.addEventListener('touchend', (e)=>{
+  e.preventDefault();
+  for(let t of e.changedTouches){
+    if(t.identifier === activeTouchId){
+      activeTouchId = null;
+      resetStick();
+      break;
+    }
+  }
+});
+joystickZone.addEventListener('touchcancel', ()=>{
+  activeTouchId = null;
+  resetStick();
+});
+
+// Desktop fallback (mouse)
+let mouseActive = false;
+joystickZone.addEventListener('mousedown', (ev)=>{
+  mouseActive = true;
+  updateStickFromTouch(ev.clientX, ev.clientY);
+});
+window.addEventListener('mousemove', (ev)=>{
+  if(mouseActive) updateStickFromTouch(ev.clientX, ev.clientY);
+});
+window.addEventListener('mouseup', ()=>{
+  mouseActive = false;
+  resetStick();
+});
+
+// Throttle & yaw buttons
+const thUp = document.getElementById('thUp');
+const thDown = document.getElementById('thDown');
+const yawLeft = document.getElementById('yawLeft');
+const yawRight = document.getElementById('yawRight');
+
+let yawInput = 0;
+function setYaw(v){ yawInput = v; }
+yawLeft.addEventListener('touchstart', ()=>setYaw(-1));
+yawRight.addEventListener('touchstart', ()=>setYaw(1));
+yawLeft.addEventListener('touchend', ()=>setYaw(0));
+yawRight.addEventListener('touchend', ()=>setYaw(0));
+yawLeft.addEventListener('mousedown', ()=>setYaw(-1));
+yawRight.addEventListener('mousedown', ()=>setYaw(1));
+window.addEventListener('mouseup', ()=>setYaw(0));
+
+let throttleTimer = null;
+function throttleChange(delta){
+  state.throttle = Math.max(params.minThrottle, Math.min(params.maxThrottle, state.throttle + delta));
+  throEl.textContent = Math.round(state.throttle*100);
+}
+thUp.addEventListener('touchstart', (e)=>{ e.preventDefault(); throttleChange(0.07); });
+thDown.addEventListener('touchstart', (e)=>{ e.preventDefault(); throttleChange(-0.07); });
+thUp.addEventListener('mousedown', ()=>throttleChange(0.08));
+thDown.addEventListener('mousedown', ()=>throttleChange(-0.08));
+
+// also allow swipe on right half to change throttle (optional)
+let startY = null;
+window.addEventListener('touchstart', (e)=>{
+  let t = e.changedTouches[0];
+  if(t.clientX > window.innerWidth*0.55){
+    startY = t.clientY;
+  }
+});
+window.addEventListener('touchmove', (e)=>{
+  if(startY === null) return;
+  let t = e.changedTouches[0];
+  if(t.clientX > window.innerWidth*0.55){
+    let dy = startY - t.clientY;
+    if(Math.abs(dy) > 20){
+      throttleChange(dy/800); // small change
+      startY = t.clientY;
+    }
+  }
+});
+window.addEventListener('touchend', ()=>{ startY = null; });
+
+// Simple physics & integration
+let lastTime = performance.now();
+function stepPhysics(dt){
+  // dt in seconds
+  // controls -> desired pitch & roll from joystick
+  // stickPos.y: -1..1 => negative = up (pull) typically, but our UI top = negative. We'll invert so pushing up (toward top) = pitch down.
+  let inputPitch = -stickPos.y; // -1..1 (positive => nose up)
+  let inputRoll = -stickPos.x;  // positive => roll right
+
+  // smooth approach to desired attitudes
+  state.pitch += (inputPitch * params.pitchSpeed - state.pitch) * Math.min(1, dt*3.5);
+  state.roll += (inputRoll * params.rollSpeed - state.roll) * Math.min(1, dt*4.0);
+  // yaw from buttons + bank-to-turn effect
+  let bankYaw = state.roll * params.bankToTurn;
+  state.yaw += ((yawInput * params.yawSpeed) + bankYaw - state.yaw) * Math.min(1, dt*2.5);
+
+  // Orientation quaternion from yaw/pitch/roll
+  plane.rotation.set(state.pitch * 0.5, state.yaw * 0.5, state.roll * 0.7);
+
+  // Compute forward vector (local -z axis)
+  let forward = new THREE.Vector3(0,0,-1).applyQuaternion(plane.quaternion).normalize();
+
+  // thrust along forward
+  let thrust = state.throttle * params.thrustAccel; // m/s^2
+
+  // simple drag ~ speed^2
+  let speed = state.vel.length();
+  let drag = params.drag * speed * speed;
+
+  // lift: proportional to speed^2 and wing angle (approx using pitch). We'll push upward relative to world y.
+  let lift = params.liftFactor * speed * speed * Math.max(0, Math.cos(state.pitch*0.9));
+
+  // acceleration
+  // Thrust pushes forward in world frame
+  let accel = new THREE.Vector3().copy(forward).multiplyScalar(thrust);
+  // apply drag opposite vel
+  if(speed > 0.001){
+    let dragForce = state.vel.clone().multiplyScalar(-drag/speed);
+    accel.add(dragForce);
+  }
+  // gravity and lift (vertical)
+  accel.y += lift - params.gravity * 1.0; // net vertical acceleration
+
+  // integrate velocity & pos (simple Euler)
+  state.vel.add(accel.multiplyScalar(dt));
+  state.pos.add(state.vel.clone().multiplyScalar(dt));
+
+  // Keep plane above ground: simple collision
+  if(state.pos.y < 2.0){
+    state.pos.y = 2.0;
+    state.vel.y = Math.max(0, state.vel.y * -0.2); // bounce damped
+  }
+
+  // update plane object position
+  plane.position.copy(state.pos);
+
+  // Update speed and small auto-rotation to simulate nose pitching with speed
+  state.speed = state.vel.length();
+
+  // Slight auto-leveling if no stick input
+  if(Math.abs(stickPos.x) < 0.02 && Math.abs(stickPos.y) < 0.02){
+    state.roll *= 1 - Math.min(1, dt*0.45);
+    state.pitch *= 1 - Math.min(1, dt*0.25);
+  }
+
+  // update HUD
+  speedEl.textContent = Math.round(state.speed);
+  altEl.textContent = Math.round(state.pos.y);
+  throEl.textContent = Math.round(state.throttle*100);
+
+  // adjust camera
+  let desiredCamPos = plane.position.clone();
+  let camOffsetLocal = cameraTargetOffset.clone();
+  let qo = plane.quaternion.clone();
+  camOffsetLocal.applyQuaternion(qo);
+  desiredCamPos.add(camOffsetLocal);
+  camera.position.lerp(desiredCamPos, Math.min(1, dt*4.0));
+  // look slightly ahead of plane
+  let forwardPoint = plane.position.clone().add(forward.clone().multiplyScalar(60));
+  camera.lookAt(forwardPoint);
+
+  updateLighting(state.pos.y);
+}
+
+// animation loop
+function animate(t){
+  requestAnimationFrame(animate);
+  let now = t || performance.now();
+  let dt = Math.min(0.05, (now - lastTime)/1000);
+  lastTime = now;
+
+  stepPhysics(dt);
+  renderer.render(scene, camera);
+}
+requestAnimationFrame((t)=>{ lastTime = t; animate(t); });
+
+// handle resize
+window.addEventListener('resize', ()=>{
+  camera.aspect = window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  zoneRect = joystickZone.getBoundingClientRect();
+});
+
+// initial zone rect for joystick
+zoneRect = joystickZone.getBoundingClientRect();
+
+// initial throttle text
+throEl.textContent = Math.round(state.throttle*100);
+
+// keyboard support for desktop testing
+window.addEventListener('keydown', (e)=>{
+  if(e.key === 'ArrowUp') throttleChange(0.06);
+  if(e.key === 'ArrowDown') throttleChange(-0.06);
+  if(e.key === 'a') setYaw(-1);
+  if(e.key === 'd') setYaw(1);
+});
+window.addEventListener('keyup', (e)=>{
+  if(e.key === 'a' || e.key === 'd') setYaw(0);
+});
+</script>
+</body>
+</html>
